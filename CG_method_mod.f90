@@ -22,7 +22,7 @@ contains
         real(dp), intent(in) :: A(:,:,:)
         real(dp), intent(out) :: x(:)
         
-        integer :: i, j, k, n_x, n_y, n_z
+        integer :: n_x, n_y, n_z
         n_x = size(A, 1)
         n_y = size(A, 2)
         n_z = size(A, 3)
