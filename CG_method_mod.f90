@@ -3,10 +3,15 @@ module CG_method_mod
 
     implicit none
     integer, parameter :: dp = real64
+    real(dp), allocatable, public :: helmholtz_matrix(:,:)
+    real(dp), allocatable, public :: poisson_matrix(:,:)
 
     !public :: CG_method_1 ! Using the mat A of Ax = b explicitly
     public :: CG_method ! Using the mat A of Ax = b implicitly, i.e., using the function to calculate Ax.
     public :: mat_to_vec
+    public :: initialize_helmholtz_matrix
+    public :: initialize_poisson_matrix
+
     ! public :: index_3D_to_1D
     
 
@@ -43,11 +48,11 @@ contains
     !     end do
     ! end subroutine index_3D_to_1D
 
-    subroutine initialize_CG_method(n_x, n_y, n_z, h_x, a_pot, A)
+    subroutine initialize_helmholtz_matrix(n_x, h_x, coeff, A)
         implicit none
-        integer, intent(in) :: n_x, n_y, n_z
-        real(dp), intent(in) :: h_x, a_pot
-        real(dp), intent(out) :: A(n_x*n_y*n_z, n_x*n_y*n_z)
+        integer, intent(in) :: n_x
+        real(dp), intent(in) :: h_x, coeff
+        real(dp), intent(out) :: A(n_x**3, n_x**3)
         
         integer :: i, j, k, row
         real(dp) :: h2inv
@@ -56,14 +61,14 @@ contains
         A = 0.0_dp
 
         ! 3次元格子でループを回す
-        do k = 1, n_z
-            do j = 1, n_y
+        do k = 1, n_x
+            do j = 1, n_x
                 do i = 1, n_x
                     ! 現在のグリッド点の1次元インデックス（行番号）
-                    row = (k-1)*n_x*n_y + (j-1)*n_x + i
+                    row = (k-1)*n_x*n_x + (j-1)*n_x + i
                     
                     ! --- 対角成分 ---
-                    A(row, row) = -90.0_dp * h2inv - 1.0_dp / a_pot**2
+                    A(row, row) = -90.0_dp * h2inv - 1.0_dp / coeff**2
                     
                     ! --- X方向の隣接点 ---
                     if (i+1 <= n_x) A(row + 1, row)     = 16.0_dp * h2inv
@@ -72,20 +77,58 @@ contains
                     if (i-2 >= 1)   A(row - 2, row)     = -1.0_dp * h2inv
                     
                     ! --- Y方向の隣接点 ---
-                    if (j+1 <= n_y) A(row + n_x, row)   = 16.0_dp * h2inv
+                    if (j+1 <= n_x) A(row + n_x, row)   = 16.0_dp * h2inv
                     if (j-1 >= 1)   A(row - n_x, row)   = 16.0_dp * h2inv
-                    if (j+2 <= n_y) A(row + 2*n_x, row) = -1.0_dp * h2inv
+                    if (j+2 <= n_x) A(row + 2*n_x, row) = -1.0_dp * h2inv
                     if (j-2 >= 1)   A(row - 2*n_x, row) = -1.0_dp * h2inv
                     
                     ! --- Z方向の隣接点 ---
-                    if (k+1 <= n_z) A(row + n_x*n_y, row)   = 16.0_dp * h2inv
-                    if (k-1 >= 1)   A(row - n_x*n_y, row)   = 16.0_dp * h2inv
-                    if (k+2 <= n_z) A(row + 2*n_x*n_y, row) = -1.0_dp * h2inv
-                    if (k-2 >= 1)   A(row - 2*n_x*n_y, row) = -1.0_dp * h2inv
+                    if (k+1 <= n_x) A(row + n_x*n_x, row)   = 16.0_dp * h2inv
+                    if (k-1 >= 1)   A(row - n_x*n_x, row)   = 16.0_dp * h2inv
+                    if (k+2 <= n_x) A(row + 2*n_x*n_x, row) = -1.0_dp * h2inv
+                    if (k-2 >= 1)   A(row - 2*n_x*n_x, row) = -1.0_dp * h2inv
                 end do
             end do
         end do
-    end subroutine initialize_CG_method
+    end subroutine initialize_helmholtz_matrix
+
+    subroutine initialize_poisson_matrix(n_x, h_x, A)
+        implicit none
+        integer, intent(in) :: n_x
+        real(dp), intent(in) :: h_x
+        real(dp), intent(out) :: A(n_x**3, n_x**3)
+        
+        integer :: i, j, k, row
+        real(dp) :: h2inv
+        
+        h2inv = 1.0_dp / (h_x * h_x)
+        A = 0.0_dp
+
+        ! 3次元格子でループを回す
+        do k = 1, n_x
+            do j = 1, n_x
+                do i = 1, n_x
+                    ! 現在のグリッド点の1次元インデックス（行番号）
+                    row = (k-1)*n_x*n_x + (j-1)*n_x + i
+                    
+                    ! --- 対角成分 ---
+                    A(row, row) = -6.0_dp * h2inv
+                    
+                    ! --- X方向の隣接点 ---
+                    if (i+1 <= n_x) A(row + 1, row)     = h2inv
+                    if (i-1 >= 1)   A(row - 1, row)     = h2inv
+                    
+                    ! --- Y方向の隣接点 ---
+                    if (j+1 <= n_x) A(row + n_x, row)   = h2inv
+                    if (j-1 >= 1)   A(row - n_x, row)   = h2inv
+                    
+                    ! --- Z方向の隣接点 ---
+                    if (k+1 <= n_x) A(row + n_x*n_x, row)   = h2inv
+                    if (k-1 >= 1)   A(row - n_x*n_x, row)   = h2inv
+                end do
+            end do
+        end do
+    end subroutine initialize_poisson_matrix
 
     
 
